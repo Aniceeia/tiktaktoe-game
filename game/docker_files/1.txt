@@ -1,0 +1,8 @@
+curl -X POST http://localhost:8080/register \
+  -H "Content-Type: application/json" \
+  -d '{"login":"alice", "password":"alicepass"}'
+
+
+docker-compose down -v --remove-orphans
+
+docker rmi $(docker images -q)
