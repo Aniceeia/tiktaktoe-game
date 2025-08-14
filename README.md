@@ -1,9 +1,7 @@
 # **TicTacToe Arena: Multiplayer Game Service**  
 **Сервис для игры в крестики-нолики с REST API и JWT-аутентификацией**  
 
-[![Go](https://img.shields.io/badge/Go-1.20+-blue.svg)](https://golang.org/)  
-[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://www.postgresql.org/)  
-[![Docker](https://img.shields.io/badge/Docker-24.0+-blue.svg)](https://www.docker.com/)  
+[![Go](https://img.shields.io/badge/Go-1.20+-blue.svg)](https://golang.org/) [![PostgreSQL](https://img.shields.io/badge/PostgreSQL-15+-blue.svg)](https://www.postgresql.org/) [![Docker](https://img.shields.io/badge/Docker-24.0+-blue.svg)](https://www.docker.com/)  
 
 <p align="center">
   <img src="docs/gameplay.gif" alt="Game Demo" width="500">
