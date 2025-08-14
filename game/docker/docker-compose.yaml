@@ -1,0 +1,42 @@
+version: '3'
+services:
+  app:
+    build: 
+      context: ..
+      dockerfile: docker/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - DATABASE_URL=postgres://game:password@db/game_db?sslmode=disable
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: 
+      - game-network
+
+  db:
+    image: postgres:14
+    environment:
+      POSTGRES_USER: game
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: game_db
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./database:/docker-entrypoint-initdb.d
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U game -d game_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks: 
+      - game-network
+
+volumes:
+  pgdata:
+
+networks: 
+  game-network:
+    driver: bridge
+
