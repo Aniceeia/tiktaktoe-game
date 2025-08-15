@@ -24,13 +24,19 @@ func AuthMiddleware(authService *services.AuthService) func(http.Handler) http.H
 
 			login, password, err := extractLoginPassword(r)
 			if err != nil {
-				respondWithError(w, errInvalidHeader, http.StatusUnauthorized)
+				respondWithError(w, "Invalid authorization header", "UNAUTHORIZED", http.StatusUnauthorized)
+				return
+			}
+
+			// Валидация логина и пароля
+			if login == "" || password == "" {
+				respondWithError(w, "Invalid credentials", "UNAUTHORIZED", http.StatusUnauthorized)
 				return
 			}
 
 			user, err := authService.Login(r.Context(), login, password)
 			if err != nil || user == nil {
-				respondWithError(w, errUnauthorized, http.StatusUnauthorized)
+				respondWithError(w, "Invalid credentials", "UNAUTHORIZED", http.StatusUnauthorized)
 				return
 			}
 
@@ -40,7 +46,6 @@ func AuthMiddleware(authService *services.AuthService) func(http.Handler) http.H
 	}
 }
 
-// GetUserIDFromContext извлекает ID пользователя из контекста
 func GetUserIDFromContext(ctx context.Context) string {
 	if userID, ok := ctx.Value(UserIDKey).(string); ok {
 		return userID
@@ -49,7 +54,7 @@ func GetUserIDFromContext(ctx context.Context) string {
 }
 
 func shouldSkipAuth(r *http.Request) bool {
-	// Аутентификация не нужна для регистрации и входа
+	// Аутентификация не нужна если ты уже вошел
 	if strings.Contains(r.URL.Path, "/auth/register") || strings.Contains(r.URL.Path, "/auth/login") {
 		return true
 	}
@@ -80,6 +85,6 @@ func extractLoginPassword(r *http.Request) (string, string, error) {
 	return credentials[0], credentials[1], nil
 }
 
-func respondWithError(w http.ResponseWriter, err error, statusCode int) {
-	http.Error(w, err.Error(), statusCode)
+func respondWithError(w http.ResponseWriter, message, code string, statusCode int) {
+	SendErrorResponse(w, message, code, statusCode)
 }

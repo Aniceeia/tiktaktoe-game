@@ -23,15 +23,15 @@ const (
 )
 
 type Game struct {
-	ID         string     `json:"id"`
-	Board      [3][3]int  `json:"board"`
-	Status     GameStatus `json:"status"`
-	Player1ID  string     `json:"player1_id"`
-	Player2ID  string     `json:"player2_id"`
-	NextTurnID string     `json:"next_turn_id"`
-	Mode       GameMode   `json:"mode"`
-	CreatedAt  time.Time  `json:"created_at"`
-	UpdatedAt  time.Time  `json:"updated_at"`
+	ID         string     `json:"id" db:"id"`
+	Board      [3][3]int  `json:"board" db:"board"`
+	Status     GameStatus `json:"status" db:"status"`
+	Player1ID  string     `json:"player1_id" db:"player1_id"`
+	Player2ID  string     `json:"player2_id" db:"player2_id"`
+	NextTurnID string     `json:"next_turn_id" db:"next_turn_id"`
+	Mode       GameMode   `json:"mode" db:"mode"`
+	CreatedAt  time.Time  `json:"created_at" db:"created_at"`
+	UpdatedAt  time.Time  `json:"updated_at" db:"updated_at"`
 }
 
 // 1 - player "X" (Player1)
@@ -39,10 +39,15 @@ type Game struct {
 
 func NewGame(creator string, mode GameMode) *Game {
 	now := time.Now()
+	status := StatusWaiting
+	if mode == ModePvE {
+		status = StatusPlayer1Turn
+	}
+
 	return &Game{
 		ID:         generateID(),
 		Board:      [3][3]int{},
-		Status:     StatusPlayer1Turn,
+		Status:     status,
 		Player1ID:  creator,
 		Player2ID:  "",
 		NextTurnID: creator,
@@ -87,7 +92,7 @@ func (g *Game) MakeMove(playerID string, row, col int) error {
 
 	g.writeSymbol(playerID, row, col)
 	g.UpdateStatus()
-	g.switchPlayer()
+	g.SwitchPlayer()
 	g.UpdateNextPlayer()
 	g.UpdatedAt = time.Now()
 
@@ -110,21 +115,18 @@ func (g *Game) UpdateStatus() {
 }
 
 func (g *Game) isWinner(symbol int) bool {
-	// Проверка строк
 	for i := 0; i < 3; i++ {
 		if g.Board[i][0] == symbol && g.Board[i][1] == symbol && g.Board[i][2] == symbol {
 			return true
 		}
 	}
 
-	// Проверка столбцов
 	for j := 0; j < 3; j++ {
 		if g.Board[0][j] == symbol && g.Board[1][j] == symbol && g.Board[2][j] == symbol {
 			return true
 		}
 	}
 
-	// Проверка диагоналей
 	if g.Board[0][0] == symbol && g.Board[1][1] == symbol && g.Board[2][2] == symbol {
 		return true
 	}
@@ -154,7 +156,7 @@ func (g *Game) UpdateNextPlayer() {
 	}
 }
 
-func (g *Game) switchPlayer() {
+func (g *Game) SwitchPlayer() {
 	if g.Status == StatusPlayer1Turn {
 		g.Status = StatusPlayer2Turn
 	} else if g.Status == StatusPlayer2Turn {
@@ -162,12 +164,10 @@ func (g *Game) switchPlayer() {
 	}
 }
 
-// IsFinished возвращает true, если игра завершена
 func (g *Game) IsFinished() bool {
 	return g.Status == StatusPlayer1Won || g.Status == StatusPlayer2Won || g.Status == StatusDraw
 }
 
-// GetWinnerID возвращает ID победителя или пустую строку
 func (g *Game) GetWinnerID() string {
 	switch g.Status {
 	case StatusPlayer1Won:
@@ -179,12 +179,26 @@ func (g *Game) GetWinnerID() string {
 	}
 }
 
-// CanJoin возвращает true, если к игре можно присоединиться
 func (g *Game) CanJoin() bool {
 	return g.Mode == ModePvP && g.Player2ID == "" && !g.IsFinished()
 }
 
-// IsPlayerInGame проверяет, является ли пользователь участником игры
 func (g *Game) IsPlayerInGame(playerID string) bool {
 	return g.Player1ID == playerID || g.Player2ID == playerID
+}
+
+func (g *Game) JoinGame(playerID string) error {
+	if !g.CanJoin() {
+		return ErrGameNotJoinable
+	}
+	if g.Player1ID == playerID {
+		return ErrPlayerAlreadyInGame
+	}
+
+	g.Player2ID = playerID
+	g.Status = StatusPlayer1Turn
+	g.NextTurnID = g.Player1ID
+	g.UpdatedAt = time.Now()
+
+	return nil
 }

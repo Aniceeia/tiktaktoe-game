@@ -9,20 +9,18 @@ import (
 
 var validate = validator.New()
 
-// ValidationMiddleware проверяет валидность входящих запросов
 func ValidationMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Пропускаем GET запросы
+
 			if r.Method == http.MethodGet {
 				next.ServeHTTP(w, r)
 				return
 			}
 
-			// Проверяем Content-Type
 			contentType := r.Header.Get("Content-Type")
 			if contentType != "application/json" {
-				respondWithError(w, errInvalidContentType, http.StatusBadRequest)
+				respondWithError(w, "Invalid content type", "INVALID_CONTENT_TYPE", http.StatusBadRequest)
 				return
 			}
 
@@ -31,15 +29,14 @@ func ValidationMiddleware() func(http.Handler) http.Handler {
 	}
 }
 
-// ValidateRequest валидирует структуру запроса
 func ValidateRequest(w http.ResponseWriter, r *http.Request, v interface{}) bool {
 	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
-		respondWithError(w, errInvalidJSON, http.StatusBadRequest)
+		respondWithError(w, "Invalid JSON", "INVALID_JSON", http.StatusBadRequest)
 		return false
 	}
 
 	if err := validate.Struct(v); err != nil {
-		respondWithError(w, errValidationFailed, http.StatusBadRequest)
+		respondWithError(w, "Validation failed", "VALIDATION_FAILED", http.StatusBadRequest)
 		return false
 	}
 

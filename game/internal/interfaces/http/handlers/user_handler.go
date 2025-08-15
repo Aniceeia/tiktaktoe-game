@@ -22,12 +22,10 @@ func NewUserHandler(authService *services.AuthService) *UserHandler {
 	}
 }
 
-// GetUser возвращает информацию о пользователе
 func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	userID := vars["userId"]
 
-	// Проверяем, что пользователь запрашивает свою информацию
 	currentUserID := middleware.GetUserIDFromContext(r.Context())
 	if currentUserID == "" {
 		h.sendErrorResponse(w, "Unauthorized", "UNAUTHORIZED", http.StatusUnauthorized)
@@ -46,15 +44,14 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := dto.UserResponse{
-		UUID:     user.UUID,
-		Username: user.Username,
-		Score:    user.Score,
+		UUID:  user.UUID,
+		Login: user.Login,
+		Score: user.Score,
 	}
 
 	h.sendJSONResponse(w, response, http.StatusOK)
 }
 
-// handleServiceError обрабатывает ошибки сервиса
 func (h *UserHandler) handleServiceError(w http.ResponseWriter, err error) {
 	switch err {
 	case entities.ErrUserNotFound:
@@ -68,19 +65,10 @@ func (h *UserHandler) handleServiceError(w http.ResponseWriter, err error) {
 	}
 }
 
-// sendErrorResponse отправляет ответ с ошибкой
 func (h *UserHandler) sendErrorResponse(w http.ResponseWriter, message, code string, statusCode int) {
-	response := dto.ErrorResponse{
-		Error: message,
-		Code:  code,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(response)
+	middleware.SendErrorResponse(w, message, code, statusCode)
 }
 
-// sendJSONResponse отправляет JSON ответ
 func (h *UserHandler) sendJSONResponse(w http.ResponseWriter, data interface{}, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)

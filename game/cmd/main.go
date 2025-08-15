@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"database/sql"
 	"log"
 	"net/http"
 	"os"
@@ -14,39 +13,33 @@ import (
 	"game/internal/infrastructure/repositories"
 	httphandler "game/internal/interfaces/http"
 
-	_ "github.com/lib/pq"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
-	// Получаем переменные окружения
 	dbURL := getEnv("DATABASE_URL", "postgres://game:password@localhost:5432/game_db?sslmode=disable")
 	port := getEnv("PORT", "8080")
 
-	// Подключаемся к базе данных
-	db, err := sql.Open("postgres", dbURL)
+	db, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 	defer db.Close()
 
-	// Проверяем соединение с БД
-	if err := db.Ping(); err != nil {
+	if err := db.Ping(context.Background()); err != nil {
 		log.Fatalf("Failed to ping database: %v", err)
 	}
 
-	// Инициализируем репозитории
 	userRepo := repositories.NewUserRepository(db)
 	gameRepo := repositories.NewGameRepository(db)
 
-	// Инициализируем сервисы
-	authService := services.NewAuthService(userRepo)
+	userService := services.NewUserService(userRepo)
+	authService := services.NewAuthService(userService)
 	aiService := services.NewAI()
 	gameService := services.NewGameService(gameRepo, userRepo, aiService)
 
-	// Инициализируем роутер
 	router := httphandler.NewRouter(gameService, authService)
 
-	// Создаем HTTP сервер
 	server := &http.Server{
 		Addr:         ":" + port,
 		Handler:      router.GetRouter(),
@@ -55,7 +48,6 @@ func main() {
 		IdleTimeout:  60 * time.Second,
 	}
 
-	// Запускаем сервер в горутине
 	go func() {
 		log.Printf("Starting server on port %s", port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
@@ -63,7 +55,6 @@ func main() {
 		}
 	}()
 
-	// Ожидаем сигнал для graceful shutdown
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -81,7 +72,6 @@ func main() {
 	log.Println("Server exited")
 }
 
-// getEnv получает переменную окружения или возвращает значение по умолчанию
 func getEnv(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value

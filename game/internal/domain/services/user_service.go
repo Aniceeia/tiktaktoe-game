@@ -8,39 +8,35 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-type AuthService struct {
+type UserService struct {
 	userRepo repositories.UserRepository
 }
 
-func NewAuthService(userRepo repositories.UserRepository) *AuthService {
-	return &AuthService{userRepo: userRepo}
+func NewUserService(userRepo repositories.UserRepository) *UserService {
+	return &UserService{userRepo: userRepo}
 }
 
-// GetUserByID получает пользователя по ID
-func (s *AuthService) GetUserByID(ctx context.Context, userID string) (*entities.User, error) {
+func (s *UserService) GetUserByID(ctx context.Context, userID string) (*entities.User, error) {
 	return s.userRepo.GetByID(ctx, userID)
 }
 
-func (s *AuthService) isUserExists(ctx context.Context, username string) bool {
-	user, err := s.userRepo.GetByUsername(ctx, username)
+func (s *UserService) isUserExists(ctx context.Context, login string) bool {
+	user, err := s.userRepo.GetByLogin(ctx, login)
 	if err == nil && user != nil {
 		return true
 	}
 	return false
 }
 
-func (s *AuthService) Register(ctx context.Context, username, password string) (*entities.User, error) {
-	//check if user exists
-	if s.isUserExists(ctx, username) {
+func (s *UserService) Register(ctx context.Context, login, password string) (*entities.User, error) {
+	if s.isUserExists(ctx, login) {
 		return nil, entities.ErrUserExists
 	}
-	//hash with base64
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
 		return nil, errBcryptGenerate
 	}
-	//write username and hashed password
-	user := entities.NewUser(username, string(hashedPassword))
+	user := entities.NewUser(login, string(hashedPassword))
 	if err := s.userRepo.Create(ctx, user); err != nil {
 		return nil, errCreateUser
 	}
@@ -48,8 +44,8 @@ func (s *AuthService) Register(ctx context.Context, username, password string) (
 	return user, nil
 }
 
-func (s *AuthService) Login(ctx context.Context, username, password string) (*entities.User, error) {
-	user, err := s.userRepo.GetByUsername(ctx, username)
+func (s *UserService) Login(ctx context.Context, login, password string) (*entities.User, error) {
+	user, err := s.userRepo.GetByLogin(ctx, login)
 	if err != nil {
 		return nil, entities.ErrInvalidCredentials
 	}

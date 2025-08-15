@@ -24,7 +24,6 @@ func NewGameHandler(gameService *services.GameService, authService *services.Aut
 	}
 }
 
-// CreateGame создает новую игру
 func (h *GameHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	var req dto.CreateGameRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -32,7 +31,6 @@ func (h *GameHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Валидация режима игры
 	mode := entities.GameMode(req.Mode)
 	if mode != entities.ModePvP && mode != entities.ModePvE {
 		h.sendErrorResponse(w, "Invalid game mode", "INVALID_MODE", http.StatusBadRequest)
@@ -51,7 +49,6 @@ func (h *GameHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Получаем информацию о пользователях для ответа
 	player1, err := h.authService.GetUserByID(r.Context(), game.Player1ID)
 	if err != nil {
 		h.sendErrorResponse(w, "Failed to get player info", "INTERNAL_ERROR", http.StatusInternalServerError)
@@ -71,7 +68,6 @@ func (h *GameHandler) CreateGame(w http.ResponseWriter, r *http.Request) {
 	h.sendJSONResponse(w, response, http.StatusCreated)
 }
 
-// JoinGame присоединяет игрока к существующей игре
 func (h *GameHandler) JoinGame(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	gameID := vars["gameId"]
@@ -88,7 +84,6 @@ func (h *GameHandler) JoinGame(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Получаем обновленное состояние игры
 	game, err := h.gameService.GetGameState(r.Context(), gameID)
 	if err != nil {
 		h.handleServiceError(w, err)
@@ -114,7 +109,6 @@ func (h *GameHandler) JoinGame(w http.ResponseWriter, r *http.Request) {
 	h.sendJSONResponse(w, response, http.StatusOK)
 }
 
-// MakeMove выполняет ход в игре
 func (h *GameHandler) MakeMove(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	gameID := vars["gameId"]
@@ -137,7 +131,6 @@ func (h *GameHandler) MakeMove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Получаем информацию о пользователях для ответа
 	player1, err := h.authService.GetUserByID(r.Context(), game.Player1ID)
 	if err != nil {
 		h.sendErrorResponse(w, "Failed to get player info", "INTERNAL_ERROR", http.StatusInternalServerError)
@@ -157,7 +150,6 @@ func (h *GameHandler) MakeMove(w http.ResponseWriter, r *http.Request) {
 	h.sendJSONResponse(w, response, http.StatusOK)
 }
 
-// GetGameState возвращает текущее состояние игры
 func (h *GameHandler) GetGameState(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	gameID := vars["gameId"]
@@ -174,7 +166,6 @@ func (h *GameHandler) GetGameState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Проверяем, что пользователь является участником игры
 	if !game.IsPlayerInGame(userID) {
 		h.sendErrorResponse(w, "Forbidden", "FORBIDDEN", http.StatusForbidden)
 		return
@@ -199,7 +190,6 @@ func (h *GameHandler) GetGameState(w http.ResponseWriter, r *http.Request) {
 	h.sendJSONResponse(w, response, http.StatusOK)
 }
 
-// GetAvailableGames возвращает список доступных игр
 func (h *GameHandler) GetAvailableGames(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserIDFromContext(r.Context())
 	if userID == "" {
@@ -217,7 +207,7 @@ func (h *GameHandler) GetAvailableGames(w http.ResponseWriter, r *http.Request) 
 	for _, game := range games {
 		player1, err := h.authService.GetUserByID(r.Context(), game.Player1ID)
 		if err != nil {
-			continue // Пропускаем игры с проблемными пользователями
+			continue
 		}
 
 		var player2 *entities.User
@@ -240,7 +230,6 @@ func (h *GameHandler) GetAvailableGames(w http.ResponseWriter, r *http.Request) 
 	h.sendJSONResponse(w, response, http.StatusOK)
 }
 
-// GetUserGames возвращает игры пользователя
 func (h *GameHandler) GetUserGames(w http.ResponseWriter, r *http.Request) {
 	userID := middleware.GetUserIDFromContext(r.Context())
 	if userID == "" {
@@ -281,7 +270,6 @@ func (h *GameHandler) GetUserGames(w http.ResponseWriter, r *http.Request) {
 	h.sendJSONResponse(w, response, http.StatusOK)
 }
 
-// handleServiceError обрабатывает ошибки сервиса и отправляет соответствующий HTTP статус
 func (h *GameHandler) handleServiceError(w http.ResponseWriter, err error) {
 	switch err {
 	case entities.ErrGameNotFound:
@@ -307,19 +295,10 @@ func (h *GameHandler) handleServiceError(w http.ResponseWriter, err error) {
 	}
 }
 
-// sendErrorResponse отправляет ответ с ошибкой
 func (h *GameHandler) sendErrorResponse(w http.ResponseWriter, message, code string, statusCode int) {
-	response := dto.ErrorResponse{
-		Error: message,
-		Code:  code,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(response)
+	middleware.SendErrorResponse(w, message, code, statusCode)
 }
 
-// sendJSONResponse отправляет JSON ответ
 func (h *GameHandler) sendJSONResponse(w http.ResponseWriter, data interface{}, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)

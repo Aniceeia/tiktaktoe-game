@@ -4,6 +4,7 @@ import (
 	"context"
 	"game/internal/domain/entities"
 	"game/internal/domain/repositories"
+	"time"
 )
 
 type GameService struct {
@@ -21,17 +22,12 @@ func NewGameService(gameRepo repositories.GameRepository, userRepo repositories.
 }
 
 func (s *GameService) CreateGame(ctx context.Context, playerID string, mode entities.GameMode) (*entities.Game, error) {
-	// Проверяем, что пользователь существует
 	_, err := s.userRepo.GetByID(ctx, playerID)
 	if err != nil {
 		return nil, entities.ErrUserNotFound
 	}
 
 	game := entities.NewGame(playerID, mode)
-
-	if mode == entities.ModePvE {
-		game.Player2ID = "AI"
-	}
 
 	err = s.gameRepo.Create(ctx, game)
 	if err != nil {
@@ -42,7 +38,6 @@ func (s *GameService) CreateGame(ctx context.Context, playerID string, mode enti
 }
 
 func (s *GameService) JoinGame(ctx context.Context, gameID, playerID string) error {
-	// Проверяем, что пользователь существует
 	_, err := s.userRepo.GetByID(ctx, playerID)
 	if err != nil {
 		return entities.ErrUserNotFound
@@ -53,14 +48,10 @@ func (s *GameService) JoinGame(ctx context.Context, gameID, playerID string) err
 		return entities.ErrGameNotFound
 	}
 
-	if !game.CanJoin() {
-		return entities.ErrGameFull
+	err = game.JoinGame(playerID)
+	if err != nil {
+		return err
 	}
-
-	game.Player2ID = playerID
-	game.Status = entities.StatusPlayer2Turn
-	game.NextTurnID = playerID
-	game.UpdatedAt = entities.GetCurrentTime()
 
 	return s.gameRepo.Update(ctx, game)
 }
@@ -71,7 +62,6 @@ func (s *GameService) MakeMove(ctx context.Context, gameID, playerID string, row
 		return nil, entities.ErrGameNotFound
 	}
 
-	// Проверяем, что пользователь является участником игры
 	if !game.IsPlayerInGame(playerID) {
 		return nil, entities.ErrForbidden
 	}
@@ -91,15 +81,10 @@ func (s *GameService) MakeMove(ctx context.Context, gameID, playerID string, row
 		return nil, err
 	}
 
-	// Обновляем счет победителя
 	if game.IsFinished() {
 		winnerID := game.GetWinnerID()
 		if winnerID != "" && winnerID != "AI" {
-			err = s.userRepo.IncreaseScore(ctx, winnerID)
-			if err != nil {
-				// Логируем ошибку, но не прерываем выполнение
-				// TODO: добавить proper logging
-			}
+			s.userRepo.IncreaseScore(ctx, winnerID)
 		}
 	}
 
@@ -126,6 +111,7 @@ func (s *GameService) makeAIMove(game *entities.Game) {
 	row, col := s.aiService.FindBestMove(game.Board)
 	game.Board[row][col] = 2 // O для AI
 	game.UpdateStatus()
+	game.SwitchPlayer()
 	game.UpdateNextPlayer()
-	game.UpdatedAt = entities.GetCurrentTime()
+	game.UpdatedAt = time.Now()
 }

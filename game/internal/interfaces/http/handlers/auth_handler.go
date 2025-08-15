@@ -7,7 +7,12 @@ import (
 	"game/internal/domain/entities"
 	"game/internal/domain/services"
 	"game/internal/interfaces/http/dto"
+	"game/internal/interfaces/http/middleware"
+
+	"github.com/go-playground/validator/v10"
 )
+
+var validate = validator.New()
 
 type AuthHandler struct {
 	authService *services.AuthService
@@ -19,11 +24,16 @@ func NewAuthHandler(authService *services.AuthService) *AuthHandler {
 	}
 }
 
-// Register регистрирует нового пользователя
 func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	var req dto.SignUpRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		h.sendErrorResponse(w, "Invalid request body", "INVALID_REQUEST", http.StatusBadRequest)
+		return
+	}
+
+	// Валидация запроса
+	if err := validate.Struct(req); err != nil {
+		h.sendErrorResponse(w, "Validation failed", "VALIDATION_FAILED", http.StatusBadRequest)
 		return
 	}
 
@@ -34,40 +44,35 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := dto.UserResponse{
-		UUID:     user.UUID,
-		Username: user.Username,
-		Score:    user.Score,
+		UUID:  user.UUID,
+		Login: user.Login,
+		Score: user.Score,
 	}
 
 	h.sendJSONResponse(w, response, http.StatusCreated)
 }
 
-// Login аутентифицирует пользователя
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	// Получаем Basic Auth данные
-	username, password, ok := r.BasicAuth()
+	login, password, ok := r.BasicAuth()
 	if !ok {
 		h.sendErrorResponse(w, "Unauthorized", "UNAUTHORIZED", http.StatusUnauthorized)
 		return
 	}
 
 	// Аутентифицируем пользователя
-	user, err := h.authService.Login(r.Context(), username, password)
+	user, err := h.authService.Login(r.Context(), login, password)
 	if err != nil {
 		h.handleServiceError(w, err)
 		return
 	}
 
-	response := dto.UserResponse{
-		UUID:     user.UUID,
-		Username: user.Username,
-		Score:    user.Score,
+	response := dto.LoginResponse{
+		UUID: user.UUID,
 	}
 
 	h.sendJSONResponse(w, response, http.StatusOK)
 }
 
-// handleServiceError обрабатывает ошибки сервиса
 func (h *AuthHandler) handleServiceError(w http.ResponseWriter, err error) {
 	switch err {
 	case entities.ErrUserExists:
@@ -81,19 +86,10 @@ func (h *AuthHandler) handleServiceError(w http.ResponseWriter, err error) {
 	}
 }
 
-// sendErrorResponse отправляет ответ с ошибкой
 func (h *AuthHandler) sendErrorResponse(w http.ResponseWriter, message, code string, statusCode int) {
-	response := dto.ErrorResponse{
-		Error: message,
-		Code:  code,
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(response)
+	middleware.SendErrorResponse(w, message, code, statusCode)
 }
 
-// sendJSONResponse отправляет JSON ответ
 func (h *AuthHandler) sendJSONResponse(w http.ResponseWriter, data interface{}, statusCode int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(statusCode)

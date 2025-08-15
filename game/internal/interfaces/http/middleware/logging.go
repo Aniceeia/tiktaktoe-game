@@ -6,7 +6,6 @@ import (
 	"time"
 )
 
-// LoggingMiddleware логирует HTTP запросы
 func LoggingMiddleware() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -31,7 +30,6 @@ func LoggingMiddleware() func(http.Handler) http.Handler {
 	}
 }
 
-// responseWriter обертка для http.ResponseWriter для перехвата статус кода
 type responseWriter struct {
 	http.ResponseWriter
 	statusCode int
