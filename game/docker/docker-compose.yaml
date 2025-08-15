@@ -11,6 +11,9 @@ services:
     environment:
       - DATABASE_URL=postgres://game:password@db:5432/game_db?sslmode=disable
       - PORT=8080
+      - JWT_SECRET=dev-secret-change-me
+      - JWT_ACCESS_TTL=15m
+      - JWT_REFRESH_TTL=720h
     depends_on:
       - db
     networks: 

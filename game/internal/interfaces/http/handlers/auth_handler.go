@@ -53,24 +53,57 @@ func (h *AuthHandler) Register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
-	login, password, ok := r.BasicAuth()
-	if !ok {
-		h.sendErrorResponse(w, "Unauthorized", "UNAUTHORIZED", http.StatusUnauthorized)
+	var req dto.JwtRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendErrorResponse(w, "Invalid request body", "INVALID_REQUEST", http.StatusBadRequest)
 		return
 	}
-
-	// Аутентифицируем пользователя
-	user, err := h.authService.Login(r.Context(), login, password)
+	if err := validate.Struct(req); err != nil {
+		h.sendErrorResponse(w, "Validation failed", "VALIDATION_FAILED", http.StatusBadRequest)
+		return
+	}
+	tokens, err := h.authService.Authenticate(r.Context(), req)
 	if err != nil {
 		h.handleServiceError(w, err)
 		return
 	}
+	h.sendJSONResponse(w, tokens, http.StatusOK)
+}
 
-	response := dto.LoginResponse{
-		UUID: user.UUID,
+func (h *AuthHandler) RefreshAccess(w http.ResponseWriter, r *http.Request) {
+	var req dto.RefreshJwtRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendErrorResponse(w, "Invalid request body", "INVALID_REQUEST", http.StatusBadRequest)
+		return
 	}
+	if err := validate.Struct(req); err != nil {
+		h.sendErrorResponse(w, "Validation failed", "VALIDATION_FAILED", http.StatusBadRequest)
+		return
+	}
+	tokens, err := h.authService.RefreshAccessToken(r.Context(), req.RefreshToken)
+	if err != nil {
+		h.handleServiceError(w, err)
+		return
+	}
+	h.sendJSONResponse(w, tokens, http.StatusOK)
+}
 
-	h.sendJSONResponse(w, response, http.StatusOK)
+func (h *AuthHandler) RefreshRotate(w http.ResponseWriter, r *http.Request) {
+	var req dto.RefreshJwtRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		h.sendErrorResponse(w, "Invalid request body", "INVALID_REQUEST", http.StatusBadRequest)
+		return
+	}
+	if err := validate.Struct(req); err != nil {
+		h.sendErrorResponse(w, "Validation failed", "VALIDATION_FAILED", http.StatusBadRequest)
+		return
+	}
+	tokens, err := h.authService.RefreshRefreshToken(r.Context(), req.RefreshToken)
+	if err != nil {
+		h.handleServiceError(w, err)
+		return
+	}
+	h.sendJSONResponse(w, tokens, http.StatusOK)
 }
 
 func (h *AuthHandler) handleServiceError(w http.ResponseWriter, err error) {

@@ -103,6 +103,14 @@ func (s *GameService) GetUserGames(ctx context.Context, userID string) ([]*entit
 	return s.gameRepo.GetByPlayerID(ctx, userID)
 }
 
+func (s *GameService) GetUserCompletedGames(ctx context.Context, userID string) ([]*entities.Game, error) {
+	return s.gameRepo.GetCompletedByUserID(ctx, userID)
+}
+
+func (s *GameService) GetLeaderboard(ctx context.Context, limit int) ([]*entities.LeaderboardPlayer, error) {
+	return s.gameRepo.GetLeaderboard(ctx, limit)
+}
+
 func (s *GameService) makeAIMove(game *entities.Game) {
 	if game.Status != entities.StatusPlayer2Turn || game.IsFinished() {
 		return

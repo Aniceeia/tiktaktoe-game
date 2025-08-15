@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"game/internal/domain/entities"
 	"game/internal/domain/services"
@@ -199,6 +200,8 @@ func (h *GameHandler) GetAvailableGames(w http.ResponseWriter, r *http.Request) 
 
 	games, err := h.gameService.GetAvailableGames(r.Context())
 	if err != nil {
+		handleError := err
+		_ = handleError
 		h.handleServiceError(w, err)
 		return
 	}
@@ -265,6 +268,88 @@ func (h *GameHandler) GetUserGames(w http.ResponseWriter, r *http.Request) {
 	response := dto.AvailableGamesResponse{
 		Games: gameInfos,
 		Total: len(gameInfos),
+	}
+
+	h.sendJSONResponse(w, response, http.StatusOK)
+}
+
+func (h *GameHandler) GetUserCompletedGames(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserIDFromContext(r.Context())
+	if userID == "" {
+		h.sendErrorResponse(w, "Unauthorized", "UNAUTHORIZED", http.StatusUnauthorized)
+		return
+	}
+
+	games, err := h.gameService.GetUserCompletedGames(r.Context(), userID)
+	if err != nil {
+		h.handleServiceError(w, err)
+		return
+	}
+
+	var gameInfos []dto.GameShortInfo
+	for _, game := range games {
+		player1, err := h.authService.GetUserByID(r.Context(), game.Player1ID)
+		if err != nil {
+			continue
+		}
+
+		var player2 *entities.User
+		if game.Player2ID != "" && game.Player2ID != "AI" {
+			player2, err = h.authService.GetUserByID(r.Context(), game.Player2ID)
+			if err != nil {
+				continue
+			}
+		}
+
+		gameInfo := dto.ToGameShortInfo(game, player1, player2)
+		gameInfos = append(gameInfos, gameInfo)
+	}
+
+	response := dto.AvailableGamesResponse{
+		Games: gameInfos,
+		Total: len(gameInfos),
+	}
+
+	h.sendJSONResponse(w, response, http.StatusOK)
+}
+
+func (h *GameHandler) GetLeaderboard(w http.ResponseWriter, r *http.Request) {
+	userID := middleware.GetUserIDFromContext(r.Context())
+	if userID == "" {
+		h.sendErrorResponse(w, "Unauthorized", "UNAUTHORIZED", http.StatusUnauthorized)
+		return
+	}
+
+	limitStr := r.URL.Query().Get("limit")
+	limit := 10 // default
+	if limitStr != "" {
+		if parsed, err := strconv.Atoi(limitStr); err == nil && parsed > 0 && parsed <= 100 {
+			limit = parsed
+		}
+	}
+
+	players, err := h.gameService.GetLeaderboard(r.Context(), limit)
+	if err != nil {
+		h.handleServiceError(w, err)
+		return
+	}
+
+	var leaderboardPlayers []dto.LeaderboardPlayer
+	for _, player := range players {
+		leaderboardPlayers = append(leaderboardPlayers, dto.LeaderboardPlayer{
+			UUID:       player.UUID,
+			Login:      player.Login,
+			WinRatio:   player.WinRatio,
+			Wins:       player.Wins,
+			Losses:     player.Losses,
+			Draws:      player.Draws,
+			TotalGames: player.TotalGames,
+		})
+	}
+
+	response := dto.LeaderboardResponse{
+		Players: leaderboardPlayers,
+		Total:   len(leaderboardPlayers),
 	}
 
 	h.sendJSONResponse(w, response, http.StatusOK)

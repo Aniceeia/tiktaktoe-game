@@ -34,6 +34,16 @@ type Game struct {
 	UpdatedAt  time.Time  `json:"updated_at" db:"updated_at"`
 }
 
+type LeaderboardPlayer struct {
+	UUID       string  `json:"uuid" db:"uuid"`
+	Login      string  `json:"login" db:"login"`
+	WinRatio   float64 `json:"win_ratio" db:"win_ratio"`
+	Wins       int     `json:"wins" db:"wins"`
+	Losses     int     `json:"losses" db:"losses"`
+	Draws      int     `json:"draws" db:"draws"`
+	TotalGames int     `json:"total_games" db:"total_games"`
+}
+
 // 1 - player "X" (Player1)
 // 2 - player "O" (Player2/AI)
 

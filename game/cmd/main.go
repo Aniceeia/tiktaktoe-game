@@ -19,6 +19,9 @@ import (
 func main() {
 	dbURL := getEnv("DATABASE_URL", "postgres://game:password@localhost:5432/game_db?sslmode=disable")
 	port := getEnv("PORT", "8080")
+	jwtSecret := getEnv("JWT_SECRET", "dev-secret-change-me")
+	accessTTL := getEnv("JWT_ACCESS_TTL", "15m")
+	refreshTTL := getEnv("JWT_REFRESH_TTL", "720h") // 30d
 
 	db, err := pgxpool.New(context.Background(), dbURL)
 	if err != nil {
@@ -34,7 +37,11 @@ func main() {
 	gameRepo := repositories.NewGameRepository(db)
 
 	userService := services.NewUserService(userRepo)
-	authService := services.NewAuthService(userService)
+
+	accDur, _ := time.ParseDuration(accessTTL)
+	refDur, _ := time.ParseDuration(refreshTTL)
+	jwtProvider := services.NewJwtProvider(jwtSecret, accDur, refDur)
+	authService := services.NewAuthService(userService, jwtProvider)
 	aiService := services.NewAI()
 	gameService := services.NewGameService(gameRepo, userRepo, aiService)
 

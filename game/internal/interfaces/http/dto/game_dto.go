@@ -57,6 +57,22 @@ type AvailableGamesResponse struct {
 	Total int             `json:"total"`
 }
 
+// Leaderboard DTOs
+type LeaderboardPlayer struct {
+	UUID       string  `json:"uuid"`
+	Login      string  `json:"login"`
+	WinRatio   float64 `json:"win_ratio"`
+	Wins       int     `json:"wins"`
+	Losses     int     `json:"losses"`
+	Draws      int     `json:"draws"`
+	TotalGames int     `json:"total_games"`
+}
+
+type LeaderboardResponse struct {
+	Players []LeaderboardPlayer `json:"players"`
+	Total   int                 `json:"total"`
+}
+
 func ToGameResponse(game *entities.Game, player1, player2 *entities.User) GameResponse {
 	resp := GameResponse{
 		ID:         game.ID,

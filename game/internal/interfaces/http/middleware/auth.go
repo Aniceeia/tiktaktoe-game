@@ -2,10 +2,10 @@ package middleware
 
 import (
 	"context"
-	"encoding/base64"
-	"game/internal/domain/services"
 	"net/http"
 	"strings"
+
+	"game/internal/domain/services"
 )
 
 type contextKey string
@@ -22,25 +22,24 @@ func AuthMiddleware(authService *services.AuthService) func(http.Handler) http.H
 				return
 			}
 
-			login, password, err := extractLoginPassword(r)
-			if err != nil {
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				respondWithError(w, "Unauthorized", "UNAUTHORIZED", http.StatusUnauthorized)
+				return
+			}
+			parts := strings.SplitN(authHeader, " ", 2)
+			if len(parts) != 2 || parts[0] != "Bearer" {
 				respondWithError(w, "Invalid authorization header", "UNAUTHORIZED", http.StatusUnauthorized)
 				return
 			}
-
-			// Валидация логина и пароля
-			if login == "" || password == "" {
-				respondWithError(w, "Invalid credentials", "UNAUTHORIZED", http.StatusUnauthorized)
+			token := parts[1]
+			userID, err := authService.ValidateAccessToken(token)
+			if err != nil || userID == "" {
+				respondWithError(w, "Unauthorized", "UNAUTHORIZED", http.StatusUnauthorized)
 				return
 			}
 
-			user, err := authService.Login(r.Context(), login, password)
-			if err != nil || user == nil {
-				respondWithError(w, "Invalid credentials", "UNAUTHORIZED", http.StatusUnauthorized)
-				return
-			}
-
-			ctx := context.WithValue(r.Context(), UserIDKey, user.UUID)
+			ctx := context.WithValue(r.Context(), UserIDKey, userID)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -54,35 +53,12 @@ func GetUserIDFromContext(ctx context.Context) string {
 }
 
 func shouldSkipAuth(r *http.Request) bool {
-	// Аутентификация не нужна если ты уже вошел
-	if strings.Contains(r.URL.Path, "/auth/register") || strings.Contains(r.URL.Path, "/auth/login") {
+	if strings.Contains(r.URL.Path, "/auth/register") ||
+		strings.Contains(r.URL.Path, "/auth/login") ||
+		strings.Contains(r.URL.Path, "/auth/refresh/access") {
 		return true
 	}
 	return false
-}
-
-func extractLoginPassword(r *http.Request) (string, string, error) {
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		return "", "", errInvalidHeader
-	}
-
-	parts := strings.SplitN(authHeader, " ", 2)
-	if len(parts) != 2 || parts[0] != "Basic" {
-		return "", "", errInvalidHeader
-	}
-
-	decoded, err := base64.StdEncoding.DecodeString(parts[1])
-	if err != nil {
-		return "", "", errInvalidHeader
-	}
-
-	credentials := strings.SplitN(string(decoded), ":", 2)
-	if len(credentials) != 2 {
-		return "", "", errInvalidHeader
-	}
-
-	return credentials[0], credentials[1], nil
 }
 
 func respondWithError(w http.ResponseWriter, message, code string, statusCode int) {

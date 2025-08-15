@@ -50,14 +50,20 @@ func (r *Router) setupRoutes() {
 
 	api.HandleFunc("/auth/register", r.authHandler.Register).Methods("POST")
 	api.HandleFunc("/auth/login", r.authHandler.Login).Methods("POST")
+	api.HandleFunc("/auth/refresh/access", r.authHandler.RefreshAccess).Methods("POST")
+	api.HandleFunc("/auth/refresh/rotate", r.authHandler.RefreshRotate).Methods("POST")
 
 	api.Handle("/games", middleware.AuthMiddleware(r.authService)(middleware.ValidationMiddleware()(http.HandlerFunc(r.gameHandler.CreateGame)))).Methods("POST")
 	api.Handle("/games", middleware.AuthMiddleware(r.authService)(http.HandlerFunc(r.gameHandler.GetAvailableGames))).Methods("GET")
 	api.Handle("/games/my", middleware.AuthMiddleware(r.authService)(http.HandlerFunc(r.gameHandler.GetUserGames))).Methods("GET")
+	api.Handle("/games/my/completed", middleware.AuthMiddleware(r.authService)(http.HandlerFunc(r.gameHandler.GetUserCompletedGames))).Methods("GET")
 	api.Handle("/games/{gameId}", middleware.AuthMiddleware(r.authService)(http.HandlerFunc(r.gameHandler.GetGameState))).Methods("GET")
 	api.Handle("/games/{gameId}/join", middleware.AuthMiddleware(r.authService)(http.HandlerFunc(r.gameHandler.JoinGame))).Methods("POST")
 	api.Handle("/games/{gameId}/move", middleware.AuthMiddleware(r.authService)(middleware.ValidationMiddleware()(http.HandlerFunc(r.gameHandler.MakeMove)))).Methods("POST")
 
+	api.Handle("/leaderboard", middleware.AuthMiddleware(r.authService)(http.HandlerFunc(r.gameHandler.GetLeaderboard))).Methods("GET")
+
+	api.Handle("/users/me", middleware.AuthMiddleware(r.authService)(http.HandlerFunc(r.userHandler.GetCurrentUser))).Methods("GET")
 	api.Handle("/users/{userId}", middleware.AuthMiddleware(r.authService)(http.HandlerFunc(r.userHandler.GetUser))).Methods("GET")
 
 	r.router.HandleFunc("/health", r.healthCheck).Methods("GET")

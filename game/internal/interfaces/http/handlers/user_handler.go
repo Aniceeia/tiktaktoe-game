@@ -32,6 +32,10 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if userID == "" {
+		userID = currentUserID
+	}
+
 	if currentUserID != userID {
 		h.sendErrorResponse(w, "Forbidden", "FORBIDDEN", http.StatusForbidden)
 		return
@@ -49,6 +53,25 @@ func (h *UserHandler) GetUser(w http.ResponseWriter, r *http.Request) {
 		Score: user.Score,
 	}
 
+	h.sendJSONResponse(w, response, http.StatusOK)
+}
+
+func (h *UserHandler) GetCurrentUser(w http.ResponseWriter, r *http.Request) {
+	currentUserID := middleware.GetUserIDFromContext(r.Context())
+	if currentUserID == "" {
+		h.sendErrorResponse(w, "Unauthorized", "UNAUTHORIZED", http.StatusUnauthorized)
+		return
+	}
+	user, err := h.authService.GetUserByID(r.Context(), currentUserID)
+	if err != nil {
+		h.handleServiceError(w, err)
+		return
+	}
+	response := dto.UserResponse{
+		UUID:  user.UUID,
+		Login: user.Login,
+		Score: user.Score,
+	}
 	h.sendJSONResponse(w, response, http.StatusOK)
 }
 
